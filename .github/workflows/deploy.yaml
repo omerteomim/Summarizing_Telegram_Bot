@@ -55,7 +55,7 @@ jobs:
 
     - name: Terraform Plan
       run: | 
-        terraform plan 
+        terraform plan -input=false \
            -var="telegram_token=${{ secrets.TELEGRAM_TOKEN }}" \
            -var="telegram_chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
            -var="aws_region=${{ secrets.AWS_REGION }}" \
