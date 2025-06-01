@@ -12,7 +12,7 @@ s3 = boto3.client("s3")
 transcribe = boto3.client("transcribe")
 comprehend = boto3.client("comprehend")
 
-BUCKET = "videos-summerizing-bot"
+BUCKET = os.environ['S3_BUCKET_NAME']
 PREFIX = "telegram_videos/"
 TMP_DIR = "/tmp"
 

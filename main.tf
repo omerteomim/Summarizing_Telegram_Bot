@@ -56,6 +56,7 @@ resource "aws_lambda_function" "summarizer_lambda" {
     variables = {
       BOT_TOKEN = var.telegram_token
       CHAT_ID = var.telegram_chat_id
+      S3_BUCKET_NAME = var.s3_bucket
     }
   }
   
@@ -204,7 +205,7 @@ data "aws_iam_policy_document" "summarizer_lambda_policy" {
       "s3:PutObject"
     ]
     resources = [
-      "$${aws_s3_bucket.videos_bucket.arn}/audio_temp/*"
+      "${aws_s3_bucket.videos_bucket.arn}/audio_temp/*"
     ]
   }
   # S3 - List Bucket
