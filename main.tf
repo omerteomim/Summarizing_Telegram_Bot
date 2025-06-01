@@ -52,6 +52,9 @@ resource "aws_lambda_function" "summarizer_lambda" {
   timeout          = 600
   memory_size      = 512
   
+  layers = [
+    arn:aws:lambda:us-east-1:898466741470:layer:ffmpeg:4
+  ]
   environment {
     variables = {
       BOT_TOKEN = var.telegram_token
