@@ -62,6 +62,24 @@ resource "aws_lambda_function" "summarizer_lambda" {
   role = aws_iam_role.summarizer_lambda_role.arn
 }
 
+#s3 trigger to the summarizer lambda
+resource "aws_s3_bucket_notification" "video_upload_trigger" {
+  bucket = aws_s3_bucket.videos_bucket.id
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.uploader_lambda.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "telegram_videos/"
+    filter_suffix       = ".mp4"
+  }
+  depends_on = [aws_lambda_permission.allow_s3_invoke]
+}
+resource "aws_lambda_permission" "allow_s3_invoke" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.uploader_lambda.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.videos_bucket.arn
+}
 
 # Data source for current AWS account ID
 data "aws_caller_identity" "current" {}
@@ -176,7 +194,7 @@ data "aws_iam_policy_document" "summarizer_lambda_policy" {
       "s3:GetObject"
     ]
     resources = [
-      "$${aws_s3_bucket.videos_bucket.arn}/*"
+      "${aws_s3_bucket.videos_bucket.arn}/*"
     ]
   }
   # S3 - Put Objects in audio_temp folder
