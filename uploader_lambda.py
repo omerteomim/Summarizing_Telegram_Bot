@@ -113,7 +113,6 @@ def upload_to_s3(video_data, bucket_name, file_id):
         return None
 
 
-
 # Required IAM permissions for Lambda role:
 # - s3:PutObject on your S3 bucket
 # - logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents for CloudWatch
