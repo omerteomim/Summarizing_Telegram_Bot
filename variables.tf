@@ -16,7 +16,7 @@ variable "telegram_chat_id" {
   sensitive   = true
 }
 
-variable "s3_bucket:{
+variable "s3_bucket" {
   description = "S3 bucket fro storing videos"
   type        = string
   sensitive   = true
