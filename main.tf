@@ -53,7 +53,7 @@ resource "aws_lambda_function" "summarizer_lambda" {
   memory_size      = 512
   
   layers = [
-    arn:aws:lambda:us-east-1:898466741470:layer:ffmpeg:4
+    "arn:aws:lambda:us-east-1:898466741470:layer:ffmpeg:4"
   ]
   environment {
     variables = {
