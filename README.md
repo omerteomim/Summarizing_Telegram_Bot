@@ -1,7 +1,7 @@
 # Telegram Video Summarizer Bot
 
 A serverless Telegram bot that automatically processes video messages, extracts audio, transcribes speech, and generates AI-powered summaries using AWS services.
-
+![Image Description](image.png)
 ## 🎯 Features
 
 - **Automatic Video Processing**: Receives video messages from Telegram and processes them automatically
