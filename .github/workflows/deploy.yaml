@@ -1,0 +1,81 @@
+name: Deploy Lambda to AWS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies and zip Summarizer Lambda function
+      run: |
+        mkdir -p package
+        pip install -t package/ requests 
+        cp summarizer_lambda.py package/
+        cd package
+        zip -r ../summarizer_lambda.zip .
+        cd ..
+
+    - name: zip Uploader Lambda function
+      run: |
+        mkdir -p lambda_package
+        cp uploader_lambda.py lambda_package/
+        cd lambda_package
+        zip -r ../uploader_lambda.zip .
+        cd ..
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.0.0
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Terraform Init
+      run: terraform init
+      
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Terraform Plan
+      run: | 
+        terraform plan 
+           -var="telegram_token=${{ secrets.TELEGRAM_TOKEN }}" \
+           -var="telegram_chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+           -var="aws_region=${{ secrets.AWS_REGION }}" \
+           -var="s3_bucket=${{ secrets.S3_BUCKET_NAME }}"
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main'
+      run: |
+        terraform apply -auto-approve \
+          -var="telegram_token=${{ secrets.TELEGRAM_TOKEN }}" \
+          -var="telegram_chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -var="aws_region=${{ secrets.AWS_REGION }}" \
+          -var="s3_bucket=${{ secrets.S3_BUCKET_NAME }}"
+
+    - name: Get function URL and set Telegram webhook
+      if: github.ref == 'refs/heads/main'
+      run: |
+        FUNCTION_URL=$(terraform output -raw function_url)
+        echo "Function URL: $FUNCTION_URL"
+        echo "Setting Telegram webhook..."
+
+        # Send request and print verbose response
+        curl -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/setWebhook?url=${FUNCTION_URL}&drop_pending_updates=true"
