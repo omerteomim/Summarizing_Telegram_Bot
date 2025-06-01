@@ -231,5 +231,5 @@ resource "aws_iam_role_policy" "summarizer_lambda_policy" {
 
 # Output the function URL
 output "function_url" {
-  value = aws_lambda_function_url.telegram_bot_url.function_url
+  value = aws_lambda_function_url.uploader_lambda_url.function_url
 }
