@@ -77,5 +77,6 @@ jobs:
         echo "Function URL: $FUNCTION_URL"
         echo "Setting Telegram webhook..."
 
-        # Send request and print verbose response
-        curl -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/setWebhook?url=${FUNCTION_URL}&drop_pending_updates=true"
+        curl -v "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook?url=${FUNCTION_URL}&drop_pending_updates=true"
+      env:
+            TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
