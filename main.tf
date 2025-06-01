@@ -228,3 +228,8 @@ resource "aws_iam_role_policy" "summarizer_lambda_policy" {
   role   = aws_iam_role.summarizer_lambda_role.id
   policy = data.aws_iam_policy_document.summarizer_lambda_policy.json
 }
+
+# Output the function URL
+output "function_url" {
+  value = aws_lambda_function_url.telegram_bot_url.function_url
+}
