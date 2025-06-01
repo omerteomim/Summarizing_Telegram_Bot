@@ -70,13 +70,23 @@ jobs:
           -var="aws_region=${{ secrets.AWS_REGION }}" \
           -var="s3_bucket=${{ secrets.S3_BUCKET_NAME }}"
 
-    - name: Get function URL and set Telegram webhook
+    - name: Get function URL and set webhook
       if: github.ref == 'refs/heads/main'
       run: |
-        FUNCTION_URL=$(terraform output -raw function_url)
+        FUNCTION_URL=$(terraform output function_url | grep -Eo 'https://[^"]+' | head -n 1)
         echo "Function URL: $FUNCTION_URL"
         echo "Setting Telegram webhook..."
-
-        curl -v "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook?url=${FUNCTION_URL}&drop_pending_updates=true"
-      env:
-            TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        
+        # Add verbose output for debugging
+        WEBHOOK_RESPONSE=$(curl -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/setWebhook?url=${FUNCTION_URL}&drop_pending_updates=true")
+        
+        echo "Webhook response: $WEBHOOK_RESPONSE"
+        
+        # Display setup instructions if automatic setup fails
+        echo "If webhook setup failed, manually set it with:"
+        echo "curl -X POST https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=$FUNCTION_URL"
+        
+        # Verify webhook info
+        echo "Verifying webhook info..."
+        curl --request GET \
+          --url "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/getWebhookInfo"
