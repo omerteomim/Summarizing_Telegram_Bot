@@ -12,7 +12,7 @@ provider "aws" {
 
 #s3 bucket for storing videos
 resource "aws_s3_bucket" "videos_bucket" {
-  bucket = var.s3_bucket
+  bucket = "videos-summarizing-telegram-bot"
 }
 
 #uploader_lambda

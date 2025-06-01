@@ -17,9 +17,10 @@ variable "telegram_chat_id" {
 }
 
 variable "s3_bucket" {
-  description = "S3 bucket fro storing videos"
+  description = "S3 bucket for storing videos"
   type        = string
   sensitive   = true
+  default     = "videos-summarizing-telegram-bot"
 }
 
 variable "uploader_lambda_zip_path" {
