@@ -249,7 +249,7 @@ data "aws_iam_policy_document" "summarizer_lambda_policy" {
         "rekognition:StartLabelDetection",
         "rekognition:GetLabelDetection"
     ]
-    resources: ["*"]
+    resources = ["*"]
   }
 }
 
