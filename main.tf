@@ -244,7 +244,7 @@ data "aws_iam_policy_document" "summarizer_lambda_policy" {
   }
   #Amazon Rekognition Access
   statement {
-    effect = "Allow",
+    effect = "Allow"
     actions =  [
         "rekognition:StartLabelDetection",
         "rekognition:GetLabelDetection"
