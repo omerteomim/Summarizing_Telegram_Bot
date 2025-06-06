@@ -242,6 +242,15 @@ data "aws_iam_policy_document" "summarizer_lambda_policy" {
     ]
     resources = ["*"]
   }
+  #Amazon Rekognition Access
+  statement {
+    effect = "Allow",
+    actions =  [
+        "rekognition:StartLabelDetection",
+        "rekognition:GetLabelDetection"
+    ]
+    resources: ["*"]
+  }
 }
 
 # Attach policy to Summarizer Lambda role

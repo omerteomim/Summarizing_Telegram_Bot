@@ -11,6 +11,7 @@ from collections import Counter
 s3 = boto3.client("s3")
 transcribe = boto3.client("transcribe")
 comprehend = boto3.client("comprehend")
+rekognition = boto3.client("rekognition")
 
 BUCKET = os.environ['S3_BUCKET_NAME']
 PREFIX = "telegram_videos/"
@@ -31,6 +32,57 @@ def download_video(key):
     s3.download_file(Bucket=BUCKET, Key=key, Filename=filename)
     return filename
 
+
+def rekognition_with_aws(key):
+    """Extract visual labels from video using AWS Rekognition"""
+    response = rekognition.start_label_detection(
+        Video={'S3Object': {'Bucket': BUCKET, 'Name': key}},
+        MinConfidence=75
+    )
+    job_id = response['JobId']
+    max_wait = 300
+    waited = 0
+    
+    while waited < max_wait:
+        result = rekognition.get_label_detection(JobId=job_id)
+        status = result['JobStatus']
+        
+        if status == 'SUCCEEDED':
+            labels = result['Labels']
+            
+            # Process labels into readable text
+            visual_elements = []
+            label_counts = {}
+            
+            for label_data in labels:
+                label_name = label_data['Label']['Name']
+                confidence = label_data['Label']['Confidence']
+                
+                # Only include high-confidence labels
+                if confidence >= 80:
+                    if label_name in label_counts:
+                        label_counts[label_name] = max(label_counts[label_name], confidence)
+                    else:
+                        label_counts[label_name] = confidence
+            
+            # Convert to descriptive text
+            if label_counts:
+                sorted_labels = sorted(label_counts.items(), key=lambda x: x[1], reverse=True)
+                top_labels = [f"{label}" for label, conf in sorted_labels[:10]]
+                visual_text = f"Visual content includes: {', '.join(top_labels)}."
+            else:
+                visual_text = "No significant visual content detected."
+                
+            return visual_text
+            
+        elif status == 'FAILED':
+            raise Exception(f"Rekognition label detection failed: {result.get('StatusMessage', 'Unknown error')}")
+        
+        time.sleep(10)
+        waited += 10
+
+    raise Exception("Rekognition job timed out.")
+    
 
 def extract_audio(video_path):
     audio_path = video_path.replace(".mp4", ".mp3")
@@ -143,76 +195,159 @@ def analyze_text_with_comprehend(text):
     
     return all_key_phrases, all_entities
 
-
-def create_extractive_summary(text, key_phrases, entities, num_sentences=5):
-    """Create an extractive summary using key phrases and entities"""
+def create_integrated_video_summary_with_comprehend(transcript, visual_labels, max_sentences=3):
+    """Create an integrated summary using AWS Comprehend analysis combined with visual content"""
     
-    # Split text into sentences
-    sentences = re.split(r'[.!?]+', text)
-    sentences = [s.strip() for s in sentences if s.strip()]
+    transcript = transcript.strip()
+    if not transcript:
+        return "No transcript content available."
     
-    # Score sentences based on key phrases and entities
-    sentence_scores = {}
+    # Use Comprehend to analyze the transcript
+    print("  🧠 Analyzing transcript with AWS Comprehend...")
+    key_phrases, entities = analyze_text_with_comprehend(transcript)
     
-    for i, sentence in enumerate(sentences):
-        score = 0
-        sentence_lower = sentence.lower()
-        
-        # Score based on key phrases
-        for phrase in key_phrases:
-            if phrase.lower() in sentence_lower:
-                score += 2
-        
-        # Score based on entities
-        for entity in entities:
-            if entity.lower() in sentence_lower:
-                score += 1
-        
-        # Prefer sentences that are not too short or too long
-        word_count = len(sentence.split())
-        if 8 <= word_count <= 30:
-            score += 1
-        
-        sentence_scores[i] = score
-    
-    # Get top scoring sentences
-    top_sentences = sorted(sentence_scores.items(), key=lambda x: x[1], reverse=True)
-    selected_indices = sorted([idx for idx, score in top_sentences[:num_sentences]])
-    
-    # Create summary with selected sentences
-    summary_sentences = [sentences[i] for i in selected_indices if i < len(sentences)]
-    
-    return summary_sentences
-
-
-def summarize_with_comprehend(text):
-    """Create a summary using AWS Comprehend analysis"""
-    # Analyze text with Comprehend
-    key_phrases, entities = analyze_text_with_comprehend(text)
-    
-    # Get most common key phrases and entities
+    # Get most important key phrases and entities
     key_phrase_counts = Counter(key_phrases)
     entity_counts = Counter(entities)
     
-    top_key_phrases = [phrase for phrase, count in key_phrase_counts.most_common(10)]
-    top_entities = [entity for entity, count in entity_counts.most_common(10)]
+    top_key_phrases = [phrase for phrase, count in key_phrase_counts.most_common(8)]
+    top_entities = [entity for entity, count in entity_counts.most_common(8)]
     
-    # Create extractive summary
-    summary_sentences = create_extractive_summary(text, top_key_phrases, top_entities)
+    print(f"  🔑 Found {len(top_key_phrases)} key phrases and {len(top_entities)} entities")
     
-    # Format as bullet points
-    summary = "📋 Meeting Summary:\n\n"
-    for i, sentence in enumerate(summary_sentences, 1):
-        summary += f"• {sentence}\n"
+    # Split transcript into sentences
+    sentences = re.split(r'[.!?]+', transcript)
+    sentences = [s.strip() for s in sentences if s.strip() and len(s.split()) > 3]
     
-    # Add key topics if available
-    if top_key_phrases:
-        summary += f"\n🔑 Key Topics: {', '.join(top_key_phrases[:5])}"
+    if not sentences:
+        return "No meaningful sentences found in transcript."
     
-    if top_entities:
-        summary += f"\n👥 Mentioned: {', '.join(top_entities[:5])}"
+    # Analyze and categorize visual elements
+    visual_description = ""
+    tech_items = []
+    people_items = []
+    text_items = []
+    other_items = []
     
-    return summary
+    if visual_labels:
+        for label in visual_labels:
+            label_lower = label.lower()
+            if label_lower in ['electronics', 'computer', 'phone', 'mobile phone', 'monitor', 'screen', 'hardware', 'laptop', 'device']:
+                tech_items.append(label)
+            elif label_lower in ['person', 'people', 'human', 'face', 'meeting', 'audience', 'crowd']:
+                people_items.append(label)
+            elif 'text' in label_lower or 'writing' in label_lower:
+                text_items.append(label)
+            else:
+                other_items.append(label)
+    
+    # Create rich visual description
+    visual_parts = []
+    if tech_items:
+        visual_parts.append(f"featuring {', '.join(tech_items[:3]).lower()}")
+    if people_items:
+        visual_parts.append(f"with {', '.join(people_items[:2]).lower()} present")
+    if text_items:
+        visual_parts.append("displaying textual information")
+    if other_items:
+        visual_parts.append(f"showing {', '.join(other_items[:2]).lower()}")
+    
+    if visual_parts:
+        visual_description = f"The video scene {' and '.join(visual_parts[:3])}"
+    
+    # Score sentences using Comprehend analysis + visual context
+    sentence_scores = []
+    for i, sentence in enumerate(sentences):
+        score = 0
+        words = sentence.split()
+        sentence_lower = sentence.lower()
+        
+        # Base score for good length
+        if 8 <= len(words) <= 25:
+            score += 3
+        elif 5 <= len(words) <= 30:
+            score += 1
+        
+        # Score based on Comprehend key phrases (weighted higher)
+        for phrase in top_key_phrases:
+            if phrase.lower() in sentence_lower:
+                score += 4  # High weight for key phrases
+        
+        # Score based on Comprehend entities
+        for entity in top_entities:
+            if entity.lower() in sentence_lower:
+                score += 2
+        
+        # Penalize negative/dismissive content
+        negative_phrases = ['idiotic', 'stupid', 'worst', 'terrible', 'hate', 'awful']
+        for phrase in negative_phrases:
+            if phrase in sentence_lower:
+                score -= 5
+        
+        sentence_scores.append((i, sentence, score))
+    
+    # Select best sentences based on Comprehend analysis
+    sentence_scores.sort(key=lambda x: x[2], reverse=True)
+    selected_sentences = sentence_scores[:max_sentences]
+    selected_sentences.sort(key=lambda x: x[0])  # Back to original order
+    
+    # Create fully integrated narrative with visual elements woven in
+    if selected_sentences:
+        main_content = []
+        
+        # Start with visual context
+        if visual_description:
+            main_content.append(visual_description)
+        
+        # Add the main content with context
+        if len(selected_sentences) > 0:
+            first_sentence = selected_sentences[0][1]
+            main_content.append(f"presents content focusing on: {first_sentence.lower()}")
+            
+            # Add remaining sentences with smooth transitions
+            for i, (_, sentence, _) in enumerate(selected_sentences[1:], 1):
+                if i == 1:
+                    main_content.append(f"The discussion continues with: {sentence.lower()}")
+                else:
+                    main_content.append(sentence)
+        
+        # Combine everything into flowing narrative
+        integrated_summary = " ".join(main_content)
+        
+        # Add Comprehend insights integrated into the narrative
+        if top_key_phrases:
+            integrated_summary += f" Throughout this presentation, key topics emerge including {', '.join(top_key_phrases[:4]).lower()}."
+        
+        if top_entities and visual_labels:
+            integrated_summary += f" The combination of visual elements ({', '.join(visual_labels[:3]).lower()}) and spoken content about {', '.join(top_entities[:3]).lower()} creates a comprehensive educational experience."
+        
+        return integrated_summary
+    
+    return "Unable to generate meaningful summary from the content."
+
+def summarize_video_content(transcript, visual_summary):
+    """Main function to create integrated video summary using AWS Comprehend"""
+    
+    # Extract visual labels
+    visual_labels = re.findall(r"Visual content includes: (.+)\.", visual_summary)
+    labels = visual_labels[0].split(", ") if visual_labels else []
+    
+    # Clean and deduplicate labels
+    cleaned_labels = []
+    seen = set()
+    for label in labels:
+        clean_label = label.strip()
+        if clean_label and clean_label.lower() not in seen:
+            cleaned_labels.append(clean_label)
+            seen.add(clean_label.lower())
+    
+    # Create fully integrated summary with visual elements woven throughout
+    summary = create_integrated_video_summary_with_comprehend(transcript, cleaned_labels)
+    
+    # Format output - no separate visual section since it's integrated
+    result = f"📹 Integrated Video Analysis:\n{summary}"
+    
+    return result
 
 
 def send_to_telegram(message):
@@ -234,6 +369,10 @@ def lambda_handler(event, context):
         print("Step 2: Downloading and extracting audio...")
         # 2. Download & extract audio
         video_path = download_video(key)
+
+        print("Step 3: starting rekognition... ")
+        visual_summary=rekognition_with_aws(key)
+
         audio_path = extract_audio(video_path)
         print(f"Audio extracted to: {audio_path}")
 
@@ -246,10 +385,11 @@ def lambda_handler(event, context):
         # 4. Transcribe using AWS Transcribe
         transcript = transcribe_with_aws(audio_s3_uri)
         print(f"Transcription completed. Length: {len(transcript)} characters")
+        
 
         print("Step 5: Summarizing with AWS Comprehend...")
         # 5. Summarize using AWS Comprehend
-        summary = summarize_with_comprehend(transcript)
+        summary = summarize_video_content(transcript,visual_summary)
         print(f"Summary created. Length: {len(summary)} characters")
 
         print("Step 6: Sending to Telegram...")
@@ -274,6 +414,7 @@ def lambda_handler(event, context):
         if audio_s3_key:
             try:
                 s3.delete_object(Bucket=BUCKET, Key=audio_s3_key)
+                send_to_telegram("No video found")
             except:
                 pass
         
