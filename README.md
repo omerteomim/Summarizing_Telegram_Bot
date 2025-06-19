@@ -1,11 +1,11 @@
 # Telegram Video Summarizer Bot
 
 A serverless Telegram bot that automatically processes video messages, extracts audio, transcribes speech, and generates AI-powered summaries using AWS services.
-![Image Description](image.png)
 ## 🎯 Features
 
 - **Automatic Video Processing**: Receives video messages from Telegram and processes them automatically
 - **Speech-to-Text**: Uses AWS Transcribe to convert video audio to text
+- **Visual-to-Text**: Uses AWS Rekognition to convert Video visuals to text
 - **AI Summarization**: Leverages AWS Comprehend to generate intelligent summaries with key phrases and entities
 - **Serverless Architecture**: Built with AWS Lambda for cost-effective scaling
 - **Automated Deployment**: GitHub Actions CI/CD pipeline with Terraform
@@ -29,7 +29,7 @@ The system consists of two main Lambda functions:
 ## 🛠️ Technology Stack
 
 - **Backend**: Python 3.12, AWS Lambda
-- **Infrastructure**: Terraform, AWS S3, AWS Transcribe, AWS Comprehend
+- **Infrastructure**: Terraform, AWS S3, AWS Transcribe, AWS Rekognition and AWS Comprehend
 - **CI/CD**: GitHub Actions
 - **Video Processing**: FFmpeg (via Lambda Layer)
 - **Communication**: Telegram Bot API
@@ -157,6 +157,7 @@ The project follows AWS security best practices:
 - `s3:GetObject`, `s3:DeleteObject` on videos bucket
 - `s3:PutObject` on audio_temp folder
 - `transcribe:*` for speech-to-text
+- `rekognition:*` for visual-to-text
 - `comprehend:DetectKeyPhrases`, `comprehend:DetectEntities`
 - CloudWatch Logs permissions
 
@@ -213,4 +214,5 @@ This project is open source and available under the MIT License.
 - [AWS Lambda Documentation](https://docs.aws.amazon.com/lambda/)
 - [AWS Transcribe Documentation](https://docs.aws.amazon.com/transcribe/)
 - [AWS Comprehend Documentation](https://docs.aws.amazon.com/comprehend/)
+- [AWS Rkognition Documentation](https://docs.aws.amazon.com/rekognition)
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
