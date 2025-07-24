@@ -260,7 +260,3 @@ resource "aws_iam_role_policy" "summarizer_lambda_policy" {
   policy = data.aws_iam_policy_document.summarizer_lambda_policy.json
 }
 
-# Output the function URL
-output "function_url" {
-  value = aws_lambda_function_url.uploader_lambda_url.function_url
-}

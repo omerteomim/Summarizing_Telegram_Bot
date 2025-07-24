@@ -22,8 +22,7 @@ jobs:
       run: |
         mkdir -p summarizer_package
         pip install -t summarizer_package/ requests 
-        # Copy and rename to lambda_function.py for standard handler
-        cp summarizer_lambda.py summarizer_package/lambda_function.py
+        cp lambdas/summarizer_lambda.py summarizer_package/lambda_function.py
         cd summarizer_package
         zip -r ../summarizer_lambda.zip .
         cd ..
@@ -31,16 +30,10 @@ jobs:
     - name: zip Uploader Lambda function
       run: |
         mkdir -p uploader_package
-        # Copy and rename to lambda_function.py for standard handler
-        cp uploader_lambda.py uploader_package/lambda_function.py
+        cp lambdas/uploader_lambda.py uploader_package/lambda_function.py
         cd uploader_package
         zip -r ../uploader_lambda.zip .
         cd ..
-
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.0.0
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -49,46 +42,26 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Terraform Init
-      run: terraform init
-      
-    - name: Terraform Validate
-      run: terraform validate
-
-    - name: Terraform Plan
-      run: | 
-        terraform plan -input=false \
-           -var="telegram_token=${{ secrets.TELEGRAM_TOKEN }}" \
-           -var="telegram_chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-           -var="aws_region=${{ secrets.AWS_REGION }}" \
-           -var="s3_bucket=${{ secrets.S3_BUCKET_NAME }}"
-
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main'
-      run: |
-        terraform apply -auto-approve \
-          -var="telegram_token=${{ secrets.TELEGRAM_TOKEN }}" \
-          -var="telegram_chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-          -var="aws_region=${{ secrets.AWS_REGION }}" \
-          -var="s3_bucket=${{ secrets.S3_BUCKET_NAME }}"
+    - name: Uploader Lambda Deploy
+      uses: appleboy/lambda-action@v0.2.0
+      with:
+        function_name: uploader_lambda
+        zip_file: uploader_lambda.zip
+    
+    - name: Summerizer Lambda Deploy
+      uses: appleboy/lambda-action@v0.2.0
+      with:
+        function_name: summarizer_lambda
+        zip_file: summarizer_lambda.zip
 
     - name: Get function URL and set webhook
       if: github.ref == 'refs/heads/main'
       run: |
-        FUNCTION_URL=$(terraform output function_url | grep -Eo 'https://[^"]+' | head -n 1)
-        echo "Function URL: $FUNCTION_URL"
-        echo "Setting Telegram webhook..."
-        
-        # Add verbose output for debugging
-        WEBHOOK_RESPONSE=$(curl -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/setWebhook?url=${FUNCTION_URL}&drop_pending_updates=true")
-        
-        echo "Webhook response: $WEBHOOK_RESPONSE"
-        
-        # Display setup instructions if automatic setup fails
-        echo "If webhook setup failed, manually set it with:"
+        URL=$(aws lambda get-function-url-config --function-name uploader_lambda --query 'FunctionUrl' --output text)
+
+        WEBHOOK_RESPONSE=$(curl -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/setWebhook?url=${URL}&drop_pending_updates=true")
+
         echo "curl -X POST https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=$FUNCTION_URL"
-        
-        # Verify webhook info
         echo "Verifying webhook info..."
         curl --request GET \
           --url "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/getWebhookInfo"
