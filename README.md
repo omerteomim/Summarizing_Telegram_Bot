@@ -3,12 +3,13 @@
 A serverless Telegram bot that automatically processes video messages, extracts audio, transcribes speech, and generates AI-powered summaries using AWS services.
 ## 🎯 Features
 
-- **Automatic Video Processing**: Receives video messages from Telegram and processes them automatically
-- **Speech-to-Text**: Uses AWS Transcribe to convert video audio to text
-- **Visual-to-Text**: Uses AWS Rekognition to convert Video visuals to text
-- **AI Summarization**: Leverages AWS Comprehend to generate intelligent summaries with key phrases and entities
-- **Serverless Architecture**: Built with AWS Lambda for cost-effective scaling
-- **Automated Deployment**: GitHub Actions CI/CD pipeline with Terraform
+- **Automatic Video Processing**: Receives video messages from Telegram and processes them automatically.
+- **Speech-to-Text**: Uses AWS Transcribe to convert video audio to text.
+- **Visual-to-Text**: Uses AWS Rekognition to convert Video visuals to text.
+- **AI Summarization**: Leverages AWS Comprehend to generate intelligent summaries with key phrases and entities.
+- **Ifrastructure as Code**:Leverages Terraform to provision and manage AWS resources.
+- **Serverless Architecture**: Built with AWS Lambda for cost-effective scaling.
+- **Automated Deployment**: GitHub Actions CD pipeline.
 
 ## 🏗️ Architecture
 
@@ -82,12 +83,18 @@ Simply push to the `main` branch or trigger the GitHub Action manually. The depl
 ## 📁 Project Structure
 
 ```
-├── deploy.yaml              # GitHub Actions workflow
-├── main.tf                  # Main Terraform configuration
-├── variables.tf             # Terraform variables
-├── summarizer_lambda.py     # Video processing and summarization logic
-├── uploader_lambda.py       # Telegram webhook handler
-└── README.md               # This file
+├── .github/
+│ └── workflows/
+│ └── deploy.yaml
+├── infrastructures/
+│ ├── main.tf
+│ ├── variables.tf
+│ └── data.tf
+├── lambdas/
+│ ├── summarizer_lambda.py 
+│ └── uploader_lambda.py 
+├── .gitignore
+└── README.md         
 ```
 
 ## 🔧 Configuration
@@ -147,40 +154,6 @@ The project follows AWS security best practices:
 - **Secure Storage**: Sensitive data stored as environment variables
 - **Automatic Cleanup**: Temporary files are automatically deleted
 
-### Required AWS Permissions
-
-**Uploader Lambda:**
-- `s3:PutObject` on the videos bucket
-- CloudWatch Logs permissions
-
-**Summarizer Lambda:**
-- `s3:GetObject`, `s3:DeleteObject` on videos bucket
-- `s3:PutObject` on audio_temp folder
-- `transcribe:*` for speech-to-text
-- `rekognition:*` for visual-to-text
-- `comprehend:DetectKeyPhrases`, `comprehend:DetectEntities`
-- CloudWatch Logs permissions
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **Webhook Setup Failed**
-   - Manually set webhook: `curl -X POST https://api.telegram.org/bot<TOKEN>/setWebhook?url=<FUNCTION_URL>`
-   - Check function URL in AWS Console
-
-2. **Transcription Timeout**
-   - Increase Lambda timeout in `main.tf`
-   - Check video length (very long videos may exceed limits)
-
-3. **Permission Errors**
-   - Verify IAM roles have correct policies attached
-   - Check CloudWatch logs for specific error messages
-
-4. **Deployment Issues**
-   - Ensure all GitHub secrets are correctly configured
-   - Verify Terraform state bucket exists and is accessible
-
 ### Monitoring
 
 - Check CloudWatch logs for both Lambda functions
@@ -203,10 +176,6 @@ This serverless architecture is cost-effective for moderate usage:
 3. Make your changes
 4. Test thoroughly
 5. Submit a pull request
-
-## 📝 License
-
-This project is open source and available under the MIT License.
 
 ## 🔗 Useful Links
 
